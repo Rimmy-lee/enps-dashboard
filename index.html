@@ -6,6 +6,7 @@
 <title>고려대학교의료원 eNPS 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   /* 메인 컬러 - 슬레이트 계열 */
@@ -151,9 +152,15 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
     <div class="hdr-title">고려대학교의료원 eNPS 대시보드</div>
     <div class="hdr-sub">Employee Net Promoter Score · 직원 추천지수 현황</div>
   </div>
-  <div class="hdr-right">
-    <div>마지막 업데이트: <strong id="lastPeriod">-</strong></div>
-    <div style="margin-top:3px;">전체 응답 <strong id="totalCnt">-</strong>명</div>
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div>마지막 업데이트: <strong id="lastPeriod">-</strong></div>
+      <div style="margin-top:3px;">전체 응답 <strong id="totalCnt">-</strong>명</div>
+    </div>
+    <div style="display:flex;gap:7px;flex-shrink:0">
+      <button onclick="downloadExcel()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;padding:7px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">📊 엑셀</button>
+      <button onclick="downloadPDF()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;padding:7px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">📄 PDF</button>
+    </div>
   </div>
 </div>
 
@@ -164,6 +171,10 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
   <div class="tab" onclick="goTab('demo',this)">📈 경력·나이별</div>
   <div class="tab" onclick="goTab('voice',this)">💬 직원 목소리</div>
   <div class="tab" onclick="goTab('upload',this)">📁 데이터 업로드</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:6px 4px;flex-shrink:0;">
+    <button onclick="downloadExcel()" style="padding:6px 12px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 엑셀</button>
+    <button onclick="downloadPDF()" style="padding:6px 12px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📄 PDF</button>
+  </div>
 </div>
 
 <div class="main">
@@ -822,6 +833,9 @@ function renderJob() {
   const titleSuffix = selH==='all' ? '전체 병원' : selH;
   document.getElementById('c-job-bar').closest('.card').querySelector('.card-ttl').textContent = `직종별 eNPS — ${titleSuffix}`;
 
+  // 직종 수에 맞게 차트 높이 동적 조정
+  const jobBarEl = document.getElementById('c-job-bar');
+  if (jobBarEl) jobBarEl.parentElement.style.height = Math.max(300, jobs.length * 52) + 'px';
   mkChart('c-job-bar',{
     type:'bar',
     data:{labels:jobs,datasets:[{
@@ -831,12 +845,12 @@ function renderJob() {
     }]},
     options:{
       ...barOpts(true),
-      layout:{padding:{right:50}},
+      layout:{padding:{right:60}},
     },
   });
 
   // 추이
-  const showJobs=jobs.slice(0,5);
+  const showJobs=jobs;
   mkChart('c-job-trend',{
     type:'line',
     data:{
@@ -1254,7 +1268,7 @@ function renderVoice(){
   if(hasCulture){
     const sEl=document.getElementById('strength-bars');if(sEl)sEl.innerHTML=buildKwBars(strObj,'#0d9488');
     const cEl=document.getElementById('change-bars');if(cEl)cEl.innerHTML=buildKwBars(chgObj,'#e11d48');
-    const suEl=document.getElementById('sug-list');
+    const suEl=document.getElementById('suggestion-list');
     if(suEl) suEl.innerHTML=sugArr.length
       ?sugArr.slice(0,30).map(s=>`<div class="cmt cmt-sug">${s}</div>`).join('')
       :'<div class="cmt" style="border-left-color:var(--border)">제안 데이터 없음</div>';
@@ -1563,6 +1577,148 @@ function renderUpload(){
   });
   t+='</tbody></table>';
   el.innerHTML=t;
+}
+
+// ===== 다운로드 =====
+function downloadExcel() {
+  // SheetJS 라이브러리 동적 로드
+  if (!window.XLSX) {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => _doExcel();
+    document.head.appendChild(s);
+  } else {
+    _doExcel();
+  }
+}
+
+function _doExcel() {
+  const wb = XLSX.utils.book_new();
+  const P  = RAW.period_order;
+
+  // 시트1: 전체 현황
+  const ov = [
+    ['분기','eNPS','응답수','추천자수','추천자%','중립자수','중립자%','비추천자수','비추천자%'],
+    ...RAW.periods.map(p=>[p['기간'],p.enps,p.total,p.promoters,p.p_pct,p.neutrals,p.n_pct,p.detractors,p.d_pct])
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ov), '전체현황');
+
+  // 시트2: 병원별
+  const hospRows = [['병원','분기','eNPS','응답수','추천자%','중립자%','비추천자%']];
+  Object.entries(RAW.hosp_data).forEach(([h,arr])=>{
+    arr.forEach(d=>hospRows.push([h,d['기간'],d.enps,d.total,d.p_pct,d.n_pct,d.d_pct]));
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hospRows), '병원별');
+
+  // 시트3: 직종별
+  const jobRows = [['직종','분기','eNPS','응답수','추천자%','중립자%','비추천자%']];
+  Object.entries(RAW.job_data).forEach(([j,arr])=>{
+    arr.forEach(d=>jobRows.push([j,d['기간'],d.enps,d.total,d.p_pct,d.n_pct,d.d_pct]));
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(jobRows), '직종별');
+
+  // 시트4: 나이대별
+  const ageRows = [['나이대','전체평균eNPS','응답수', ...P]];
+  RAW.age_data.forEach(d=>ageRows.push([d['나이'],d['전체'],d.total,...P.map(p=>d[p]??'')]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ageRows), '나이대별');
+
+  // 시트5: 근속별
+  const gyunRows = [['근속연수','전체평균eNPS','응답수', ...P]];
+  RAW.gyun_data.forEach(d=>gyunRows.push([d['근속'],d['전체'],d.total,...P.map(p=>d[p]??'')]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gyunRows), '근속연수별');
+
+  const lastP = P[P.length-1];
+  XLSX.writeFile(wb, `eNPS_대시보드_${lastP}.xlsx`);
+}
+
+function downloadPDF() {
+  // 현재 탭 화면을 PDF로 저장 (브라우저 인쇄 기능 활용)
+  const style = document.createElement('style');
+  style.id = 'pdf-print-style';
+  style.textContent = `
+    @media print {
+      .tabs, .hdr-right button, [onclick*="download"] { display:none!important; }
+      .sec { display:block!important; }
+      .sec:not(.active) { display:none!important; }
+      .card { break-inside:avoid; page-break-inside:avoid; }
+      body { background:#fff!important; }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{ const el=document.getElementById('pdf-print-style'); if(el)el.remove(); }, 1000);
+}
+
+// ===== 다운로드 함수 =====
+function downloadExcel() {
+  const wb = XLSX.utils.book_new();
+  const P  = RAW.period_order;
+
+  // 1. 전체 현황 시트
+  const overviewData = [
+    ['분기','eNPS','응답수','추천자(명)','추천자(%)','중립자(명)','중립자(%)','비추천자(명)','비추천자(%)'],
+    ...RAW.periods.map(p=>[p['기간'],p.enps,p.total,p.promoters,p.p_pct,p.neutrals,p.n_pct,p.detractors,p.d_pct])
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(overviewData), '전체현황');
+
+  // 2. 병원별 시트
+  const hosps = Object.keys(RAW.hosp_data);
+  const hospRows = [['병원','분기','eNPS','응답수','추천자','중립자','비추천자']];
+  hosps.forEach(h => {
+    (RAW.hosp_data[h]||[]).forEach(d => {
+      hospRows.push([h, d['기간'], d.enps, d.total, d.promoters, d.neutrals, d.detractors]);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hospRows), '병원별');
+
+  // 3. 직종별 시트
+  const jobRows = [['직종','분기','eNPS','응답수','추천자','중립자','비추천자']];
+  RAW.jobs.forEach(j => {
+    (RAW.job_data[j]||[]).forEach(d => {
+      jobRows.push([j, d['기간'], d.enps, d.total, d.promoters, d.neutrals, d.detractors]);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(jobRows), '직종별');
+
+  // 4. 나이대별 시트
+  const ageHeader = ['나이대','전체평균','총응답수',...P];
+  const ageRows = [ageHeader, ...RAW.age_data.map(d=>[d['나이'],d['전체'],d.total,...P.map(p=>d[p]!==undefined?d[p]:'')])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ageRows), '나이대별');
+
+  // 5. 근속연수별 시트
+  const gyunHeader = ['근속연수','전체평균','총응답수',...P];
+  const gyunRows = [gyunHeader, ...RAW.gyun_data.map(d=>[d['근속'],d['전체'],d.total,...P.map(p=>d[p]!==undefined?d[p]:'')])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gyunRows), '근속연수별');
+
+  // 6. 카테고리별 시트 (전체 분기 합산)
+  const allCats = {};
+  Object.values(RAW.reason_data||{}).forEach(pData => {
+    Object.entries(pData['전체']||{}).forEach(([k,v]) => { allCats[k]=(allCats[k]||0)+v; });
+  });
+  const catRows = [['카테고리','전체 건수'], ...Object.entries(allCats).sort((a,b)=>b[1]-a[1])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(catRows), '점수선택이유');
+
+  // 다운로드
+  const lastP = RAW.period_order[RAW.period_order.length-1];
+  XLSX.writeFile(wb, `eNPS_대시보드_${lastP}.xlsx`);
+}
+
+function downloadPDF() {
+  // 현재 화면을 PDF로 저장 (브라우저 인쇄 기능 활용)
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @media print {
+      .hdr-right button { display:none !important; }
+      .tabs { display:none !important; }
+      .sec { display:block !important; page-break-after: always; }
+      .sec:last-child { page-break-after: avoid; }
+      body { background: white !important; }
+      .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(() => document.head.removeChild(style), 1000);
 }
 
 // ===== 초기화 =====
