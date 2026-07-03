@@ -521,6 +521,26 @@ function renderOverview() {
   const diffColor = diff >= 0 ? 'var(--green)' : 'var(--red)';
   const total = P.reduce((s,p)=>s+p.total,0);
 
+  // 전분기 대비 % 증감 표시 (mode: up-good=오르면 좋음, up-bad=오르면 나쁨, neutral=중립)
+  function pctDiff(now, before, mode) {
+    if (before === null || before === undefined) return '';
+    const d = Math.round((now - before)*10)/10;
+    if (d === 0) return ` <span style="color:var(--gray);font-size:11px">— 변동 없음</span>`;
+    const arrow = d > 0 ? '▲' : '▼';
+    let color = 'var(--gray)';
+    if (mode === 'up-good') color = d > 0 ? '#0d9488' : '#e11d48';
+    if (mode === 'up-bad')  color = d > 0 ? '#e11d48' : '#0d9488';
+    return ` <span style="color:${color};font-size:11px;font-weight:700">${arrow} ${Math.abs(d)}%p</span>`;
+  }
+  // 전분기 대비 인원수 증감 표시
+  function cntDiff(now, before) {
+    if (before === null || before === undefined) return '';
+    const d = now - before;
+    if (d === 0) return ` <span style="color:var(--gray);font-size:11px">— 변동 없음</span>`;
+    const arrow = d > 0 ? '▲' : '▼';
+    return ` <span style="color:var(--gray);font-size:11px;font-weight:700">${arrow} ${Math.abs(d).toLocaleString()}명</span>`;
+  }
+
   document.getElementById('lastPeriod').textContent = last['기간'];
   document.getElementById('totalCnt').textContent = total.toLocaleString();
 
@@ -529,12 +549,13 @@ function renderOverview() {
       val: last.enps, cls: last.enps>=0?'pos':last.enps>=-20?'neu':'neg', accent:'#8F1D2C',
       sub: `<span style="font-weight:700">${last.enps>=0?'양호':last.enps>=-20?'주의 단계':'위험 단계'}</span> · 전분기 대비 <span style="color:${diffColor};font-weight:700">${diffStr}</span>` },
     { label:'추천자 비율', val: last.p_pct+'%', cls:'pos', accent:'#0d9488',
-      sub: last.promoters.toLocaleString()+'명' },
+      sub: last.promoters.toLocaleString()+'명' + pctDiff(last.p_pct, prev?prev.p_pct:null, 'up-good') },
     { label:'중립자 비율', val: last.n_pct+'%', cls:'neu', accent:'#d97706',
-      sub: last.neutrals.toLocaleString()+'명' },
+      sub: last.neutrals.toLocaleString()+'명' + pctDiff(last.n_pct, prev?prev.n_pct:null, 'neutral') },
     { label:'비추천자 비율', val: last.d_pct+'%', cls:'neg', accent:'#e11d48',
-      sub: last.detractors.toLocaleString()+'명' },
-    { label:'최신 응답수', val: last.total.toLocaleString(), cls:'blue', accent:'#3b82f6', sub:'명' },
+      sub: last.detractors.toLocaleString()+'명' + pctDiff(last.d_pct, prev?prev.d_pct:null, 'up-bad') },
+    { label:'최신 응답수', val: last.total.toLocaleString(), cls:'blue', accent:'#3b82f6',
+      sub: '명' + cntDiff(last.total, prev?prev.total:null) },
     { label:'누적 응답수', val: total.toLocaleString(), cls:'blue', accent:'#7c3aed', sub:'전체 기간' },
   ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.accent}">
     <div class="kpi-label">${k.label}</div>
