@@ -1273,16 +1273,39 @@ function renderVoice(){
   const cmtTtl=document.getElementById('cmt-ttl');
   if(cmtTtl) cmtTtl.textContent=`${vSeg==='전체'?'전체(추천+중립+비추천)':vSeg} 주요 의견 — 위 항목 선택 이유 · ${titleSuffix}`;
   const cmtList=document.getElementById('cmt-list');
-  if(cmtList) cmtList.innerHTML=cmts.length
-    ?cmts.map(c=>`<div class="cmt" style="border-left-color:${barC}">${c}</div>`).join('')
-    :'<div class="cmt" style="color:var(--gray)">해당 기간·직종·병원·구분의 의견 데이터가 없습니다.</div>';
+  if(cmtList){
+    if(!cmts.length){
+      cmtList.innerHTML='<div class="cmt" style="color:var(--gray)">해당 기간·직종·병원·구분의 의견 데이터가 없습니다.</div>';
+    } else {
+      const first=cmts.slice(0,5);   // 처음 5개는 바로 표시
+      const rest=cmts.slice(5);      // 나머지는 접어두기
+      let out=first.map(c=>`<div class="cmt" style="border-left-color:${barC}">${c}</div>`).join('');
+      if(rest.length){
+        out+=`<details style="margin-top:8px">
+          <summary style="cursor:pointer;color:var(--gray);font-size:12px;padding:6px 0;user-select:none">▸ 의견 ${rest.length}개 더 펼쳐보기</summary>
+          ${rest.map(c=>`<div class="cmt" style="border-left-color:${barC}">${c}</div>`).join('')}
+        </details>`;
+      }
+      cmtList.innerHTML=out;
+    }
+  }
 
   // ── 조직문화 강점/변화/제안 ──
   function buildKwBars(obj,color){
     const s=Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]);
     if(!s.length) return'<div style="color:var(--gray);padding:8px">데이터 없음</div>';
     const mx=s[0][1];
-    return s.map(([k,v])=>`<div class="cat-row"><div class="cat-lbl"><span><strong>${k}</strong></span><span style="font-weight:700">${v.toLocaleString()}건</span></div><div class="cat-bar"><div class="cat-fill" style="width:${(v/mx*100).toFixed(1)}%;background:${color}"></div></div></div>`).join('');
+    const main=s.filter(([k,v])=>v>=5);   // 5건 이상: 바로 표시
+    const minor=s.filter(([k,v])=>v<5);   // 5건 미만: 접어두기
+    const row=([k,v])=>`<div class="cat-row"><div class="cat-lbl"><span><strong>${k}</strong></span><span style="font-weight:700">${v.toLocaleString()}건</span></div><div class="cat-bar"><div class="cat-fill" style="width:${(v/mx*100).toFixed(1)}%;background:${color}"></div></div></div>`;
+    let out = main.map(row).join('');
+    if(minor.length){
+      out += `<details style="margin-top:8px">
+        <summary style="cursor:pointer;color:var(--gray);font-size:12px;padding:6px 0;user-select:none">▸ 5건 미만 항목 ${minor.length}개 펼쳐보기</summary>
+        ${minor.map(row).join('')}
+      </details>`;
+    }
+    return out;
   }
   let strObj={},chgObj={},sugArr=[];
   if(selP==='전체'){
@@ -1318,9 +1341,17 @@ function renderVoice(){
     const chgCloudEl=document.getElementById('change-cloud');
     if(chgCloudEl) chgCloudEl.innerHTML=buildCloud(chgObj,['#e11d48','#be123c','#f43f5e','#d97706','#7c3aed']);
     const suEl=document.getElementById('suggestion-list');
-    if(suEl) suEl.innerHTML=sugArr.length
-      ?sugArr.slice(0,30).map(s=>`<div class="cmt cmt-sug">${s}</div>`).join('')
-      :'<div class="cmt" style="border-left-color:var(--border)">제안 데이터 없음</div>';
+    if(suEl){
+      if(!sugArr.length){
+        suEl.innerHTML='<div class="cmt" style="border-left-color:var(--border)">제안 데이터 없음</div>';
+      } else {
+        const items=sugArr.slice(0,30);
+        suEl.innerHTML=`<details>
+          <summary style="cursor:pointer;color:var(--primary);font-size:13px;font-weight:700;padding:8px 0;user-select:none">▸ 직원 제안 ${items.length}건 펼쳐보기</summary>
+          ${items.map(s=>`<div class="cmt cmt-sug">${s}</div>`).join('')}
+        </details>`;
+      }
+    }
   }
 }
 
