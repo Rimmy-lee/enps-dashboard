@@ -197,6 +197,7 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
     <div class="card">
       <div class="card-ttl">최신 분기 구성 현황</div>
       <div class="ch ch-sm"><canvas id="c-donut"></canvas></div>
+      <div id="reason-top" style="margin-top:14px"></div>
     </div>
   </div>
   <div class="card">
@@ -604,6 +605,41 @@ function renderOverview() {
   });
 
   // 도넛
+  // 최신 분기 이유 TOP2 (추천/중립/비추천)
+  (function(){
+    const el=document.getElementById('reason-top');
+    if(!el) return;
+    const rd=(RAW.reason_data||{})[last['기간']]||{};
+    const segs=[
+      {name:'추천 이유', key:'추천자', color:'#0d9488', bg:'#f0fdfa'},
+      {name:'중립 이유', key:'중립자', color:'#d97706', bg:'#fffbeb'},
+      {name:'비추천 이유', key:'비추천자', color:'#e11d48', bg:'#fff1f2'},
+    ];
+    let h=`<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">${last['기간']} 이유 TOP 2</div>`;
+    segs.forEach(sg=>{
+      const d=rd[sg.key]||{};
+      const tot=Object.values(d).reduce((a,b)=>a+b,0);
+      const top=Object.entries(d).sort((a,b)=>b[1]-a[1]).slice(0,2);
+      h+=`<div style="margin-bottom:9px">
+        <div style="font-size:11px;font-weight:700;color:${sg.color};margin-bottom:3px">${sg.name}</div>`;
+      if(!top.length){
+        h+=`<div style="font-size:11px;color:var(--gray)">데이터 없음</div>`;
+      } else {
+        top.forEach(([k,v],i)=>{
+          const pct=tot>0?(v/tot*100).toFixed(1):0;
+          h+=`<div style="display:flex;align-items:center;gap:6px;padding:3px 8px;background:${sg.bg};border-radius:6px;margin-bottom:3px">
+            <span style="font-size:10px;font-weight:800;color:${sg.color};min-width:14px">${i+1}위</span>
+            <span style="font-size:12px;font-weight:600;flex:1">${k}</span>
+            <span style="font-size:11px;color:var(--gray)">${v.toLocaleString()}건</span>
+            <span style="font-size:11px;font-weight:700;color:${sg.color}">${pct}%</span>
+          </div>`;
+        });
+      }
+      h+=`</div>`;
+    });
+    el.innerHTML=h;
+  })();
+
   mkChart('c-donut', {
     type:'doughnut',
     data:{
