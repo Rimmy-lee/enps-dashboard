@@ -40,7 +40,7 @@
   --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:linear-gradient(180deg,#faf6f7 0%,#f4f6f8 55%,#f2f4f7 100%);background-attachment:fixed;color:var(--text);font-size:14px;}
 
 /* 헤더 */
 .hdr{background:linear-gradient(135deg,#8F1D2C 0%,#5C1220 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;}
@@ -49,10 +49,10 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 .hdr-right{text-align:right;font-size:12px;opacity:.8;}
 
 /* 탭 */
-.tabs{background:#fff;border-bottom:2px solid var(--border);padding:0 28px;display:flex;gap:0;overflow-x:auto;}
-.tab{padding:13px 18px;cursor:pointer;font-size:13px;font-weight:700;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap;}
-.tab:hover{color:var(--primary);}
-.tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tabs{background:rgba(255,255,255,.7);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);padding:11px 28px;display:flex;gap:7px;overflow-x:auto;}
+.tab{padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--gray);border-radius:999px;border:1px solid transparent;transition:all .18s;white-space:nowrap;}
+.tab:hover{background:var(--primary-bg);color:var(--primary);}
+.tab.active{color:#fff;background:linear-gradient(135deg,#a5273a,#8F1D2C);border-color:transparent;box-shadow:0 2px 8px rgba(143,29,44,.28);}
 
 /* 메인 */
 .main{padding:20px 28px;max-width:1400px;margin:0 auto;}
@@ -60,7 +60,11 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 
 /* KPI 행 */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px;}
-.kpi-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.kpi-card{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:15px 18px 16px;box-shadow:0 2px 10px rgba(60,30,40,.05);transition:transform .15s,box-shadow .15s;}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(60,30,40,.10);}
+.kpi-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.kpi-badge{width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.kpi-head .kpi-label{margin-bottom:0;}
 .kpi-label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 .kpi-val{font-size:30px;font-weight:900;line-height:1;}
 .kpi-sub{font-size:11px;color:var(--gray);margin-top:5px;}
@@ -548,19 +552,22 @@ function renderOverview() {
 
   document.getElementById('kpi-overview').innerHTML = [
     { label:'최신 eNPS ' + (last.enps>=0?'🟢':last.enps>=-20?'🟡':'🔴'),
-      val: last.enps, cls: last.enps>=0?'pos':last.enps>=-20?'neu':'neg', accent:'#8F1D2C',
+      val: last.enps, cls: last.enps>=0?'pos':last.enps>=-20?'neu':'neg', accent:'#8F1D2C', icon:'📊',
       sub: `<span style="font-weight:700">${last.enps>=0?'양호':last.enps>=-20?'주의 단계':'위험 단계'}</span> · 전분기 대비 <span style="color:${diffColor};font-weight:700">${diffStr}</span>` },
-    { label:'추천자 비율', val: last.p_pct+'%', cls:'pos', accent:'#0d9488',
+    { label:'추천자 비율', val: last.p_pct+'%', cls:'pos', accent:'#0d9488', icon:'👍',
       sub: last.promoters.toLocaleString()+'명' + pctDiff(last.p_pct, prev?prev.p_pct:null, 'up-good') },
-    { label:'중립자 비율', val: last.n_pct+'%', cls:'neu', accent:'#d97706',
+    { label:'중립자 비율', val: last.n_pct+'%', cls:'neu', accent:'#d97706', icon:'😐',
       sub: last.neutrals.toLocaleString()+'명' + pctDiff(last.n_pct, prev?prev.n_pct:null, 'neutral') },
-    { label:'비추천자 비율', val: last.d_pct+'%', cls:'neg', accent:'#e11d48',
+    { label:'비추천자 비율', val: last.d_pct+'%', cls:'neg', accent:'#e11d48', icon:'👎',
       sub: last.detractors.toLocaleString()+'명' + pctDiff(last.d_pct, prev?prev.d_pct:null, 'up-bad') },
-    { label:'최신 응답수', val: last.total.toLocaleString(), cls:'blue', accent:'#3b82f6',
+    { label:'최신 응답수', val: last.total.toLocaleString(), cls:'blue', accent:'#3b82f6', icon:'📝',
       sub: '명' + cntDiff(last.total, prev?prev.total:null) },
-    { label:'누적 응답수', val: total.toLocaleString(), cls:'blue', accent:'#7c3aed', sub:'전체 기간' },
+    { label:'누적 응답수', val: total.toLocaleString(), cls:'blue', accent:'#7c3aed', icon:'📚', sub:'전체 기간' },
   ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.accent}">
-    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-head">
+      <span class="kpi-badge" style="background:${k.accent}1a;color:${k.accent}">${k.icon||''}</span>
+      <div class="kpi-label">${k.label}</div>
+    </div>
     <div class="kpi-val ${k.cls}">${k.val}</div>
     <div class="kpi-sub">${k.sub}</div>
   </div>`).join('');
@@ -1222,12 +1229,15 @@ function renderVoice(){
 
   const kpiEl=document.getElementById('voice-kpi');
   if(kpiEl) kpiEl.innerHTML=[
-    {label:'전체',val:cnt.전체.toLocaleString()+'명',color:'#8F1D2C',seg:'전체'},
-    {label:'추천자',val:cnt.추천자.toLocaleString()+'명',color:'#0d9488',seg:'추천자'},
-    {label:'중립자',val:cnt.중립자.toLocaleString()+'명',color:'#d97706',seg:'중립자'},
-    {label:'비추천자',val:cnt.비추천자.toLocaleString()+'명',color:'#e11d48',seg:'비추천자'},
-  ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.color};${k.seg===vSeg?'background:#f8fafc;outline:2px solid '+k.color+';':''}">
-    <div class="kpi-label">${k.label}</div>
+    {label:'전체',val:cnt.전체.toLocaleString()+'명',color:'#8F1D2C',seg:'전체',icon:'👥'},
+    {label:'추천자',val:cnt.추천자.toLocaleString()+'명',color:'#0d9488',seg:'추천자',icon:'👍'},
+    {label:'중립자',val:cnt.중립자.toLocaleString()+'명',color:'#d97706',seg:'중립자',icon:'😐'},
+    {label:'비추천자',val:cnt.비추천자.toLocaleString()+'명',color:'#e11d48',seg:'비추천자',icon:'👎'},
+  ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.color};${k.seg===vSeg?'background:#faf6f7;outline:2px solid '+k.color+';':''}">
+    <div class="kpi-head">
+      <span class="kpi-badge" style="background:${k.color}1a;color:${k.color}">${k.icon}</span>
+      <div class="kpi-label">${k.label}</div>
+    </div>
     <div class="kpi-val blue" style="font-size:20px;color:${k.color}">${k.val}</div>
     <div class="kpi-sub">${k.seg===vSeg?'✔ 현재 선택':''}</div>
   </div>`).join('');
