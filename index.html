@@ -76,6 +76,9 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 
 /* 그리드 */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.grid-trend{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
+.ch-trend{height:420px;}
+@media(max-width:768px){.grid-trend{grid-template-columns:1fr;}.ch-trend{height:320px;}}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
 .span2{grid-column:span 2;}
 
@@ -186,14 +189,14 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
     <div id="insight-content" style="line-height:2"></div>
   </div>
   <div class="kpi-row" id="kpi-overview"></div>
-  <div class="grid2">
+  <div class="grid-trend">
     <div class="card">
       <div class="card-ttl" id="trend-ttl">분기별 eNPS 추이</div>
-      <div class="ch ch-md"><canvas id="c-trend"></canvas></div>
+      <div class="ch ch-trend"><canvas id="c-trend"></canvas></div>
     </div>
     <div class="card">
       <div class="card-ttl">최신 분기 구성 현황</div>
-      <div class="ch ch-md"><canvas id="c-donut"></canvas></div>
+      <div class="ch ch-sm"><canvas id="c-donut"></canvas></div>
     </div>
   </div>
   <div class="card">
