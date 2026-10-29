@@ -324,6 +324,8 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:lin
     <select id="voice-hosp" onchange="renderVoice()"><option value="all">전체 병원</option></select>
     <label>직종</label>
     <select id="voice-job" onchange="renderVoice()"><option value="all">전체 직종</option></select>
+    <label>기간</label>
+    <select id="voice-period" onchange="renderVoice()"></select>
     <span id="voice-cmp-label" style="margin-left:auto;font-size:12px;color:var(--gray);font-weight:700"></span>
   </div>
 
@@ -1132,12 +1134,19 @@ function setVSeg(btn){
   if(document.getElementById('sec-voice')?.classList.contains('active')) renderVoice();
 }
 function renderVoice(){
-  const cur = RAW.period_order[RAW.period_order.length-1];
-  const prev = RAW.period_order[RAW.period_order.length-2];
-
   const hSel=document.getElementById('voice-hosp'); syncSelectOptions(hSel, RAW.hospitals);
   const jSel=document.getElementById('voice-job');  syncSelectOptions(jSel, RAW.jobs);
   const selH=hSel.value, selJ=jSel.value;
+
+  // ── 분기 선택 (최신이 위, 기본값=최신) ──
+  const pSel=document.getElementById('voice-period');
+  if(pSel && pSel.options.length===0){
+    RAW.period_order.slice().reverse().forEach(p=> pSel.add(new Option(p,p)));
+    pSel.value = RAW.period_order[RAW.period_order.length-1];
+  }
+  const cur = pSel ? pSel.value : RAW.period_order[RAW.period_order.length-1];
+  const ci = RAW.period_order.indexOf(cur);
+  const prev = ci>0 ? RAW.period_order[ci-1] : null;
 
   // ── 데이터 소스 결정 (병원+직종 > 직종 > 병원 > 전체) ──
   function pick(root, hosp, job, hospjob){
@@ -1154,10 +1163,13 @@ function renderVoice(){
 
   const grp = selJ!=='all'&&selH!=='all' ? `${selH} · ${selJ}` : selJ!=='all'?selJ : selH!=='all'?selH : '전체';
 
-  // 대상 응답수 (제안 _n 기준)
-  const nCur = (sugSrc[cur]||{})._n || 0;
+  function hasData(o){ if(!o) return false; return Object.keys(o).some(k=> k!=='_n' && o[k]>0) || (o._n||0)>0; }
+
+  // 대상 응답수 (점수선택이유 '전체' 합계)
+  const rCur=(reasonSrc[cur]||{})['전체']||{};
+  const nCur = Object.values(rCur).reduce((a,b)=>a+b,0);
   const lbl=document.getElementById('voice-cmp-label');
-  if(lbl) lbl.textContent = `${cur} vs ${prev} · ${grp} 응답 ${nCur.toLocaleString()}명`;
+  if(lbl) lbl.textContent = prev ? `${cur} vs ${prev} · ${grp}` : `${cur} · ${grp} (전분기 없음)`;
 
   // ── 공통: % 분포 + 전분기 대비 diff ──
   function distRows(curObj, prevObj, denomMode){
@@ -1175,12 +1187,8 @@ function renderVoice(){
     return rows;
   }
 
-  // 상승=빨강, 하강=파랑 (한국식 등락)
   const UP='#dc2626', DN='#2563eb';
-  function chip(r,dir,color){
-    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${color}14;color:${color};padding:3px 9px;border-radius:14px;font-size:12px;font-weight:700;margin:2px 3px 2px 0">${r.k} ${dir}${Math.abs(r.diff).toFixed(1)}%p</span>`;
-  }
-  function fullRow(r){
+  function fullRow(r, noCmp){
     const c = r.diff>0.05?UP : r.diff<-0.05?DN : 'var(--gray)';
     const d = r.diff>0.05?`▲${r.diff.toFixed(1)}` : r.diff<-0.05?`▼${Math.abs(r.diff).toFixed(1)}` : '–';
     const barw = Math.min(100, r.cur);
@@ -1188,46 +1196,60 @@ function renderVoice(){
       <span style="min-width:120px;font-weight:600">${r.k}</span>
       <div style="flex:1;height:8px;background:#eef1f4;border-radius:5px;overflow:hidden"><div style="height:100%;width:${barw}%;background:#8F1D2C;border-radius:5px"></div></div>
       <span style="min-width:46px;text-align:right;font-weight:700">${r.cur.toFixed(1)}%</span>
-      <span style="min-width:52px;text-align:right;font-weight:700;color:${c}">${d}</span>
+      ${noCmp?'':`<span style="min-width:52px;text-align:right;font-weight:700;color:${c}">${d}</span>`}
     </div>`;
   }
-  function changeBlock(rows, emptyMsg, hideZero){
+  function changeBlock(rows, emptyMsg, hideZero, noCmp){
     let rr = rows.filter(r=> !(r.cur===0 && r.prev===0));
-    if(hideZero) rr = rr.filter(r=> r.cur>0);   // 이번 분기 0.0% 항목 제거
+    if(hideZero) rr = rr.filter(r=> r.cur>0);
     if(!rr.length) return `<div style="color:var(--gray);font-size:12px;padding:8px">${emptyMsg||'데이터 없음'}</div>`;
-    return `<div style="margin-top:2px">${rr.map(fullRow).join('')}</div>`;
+    const note = noCmp ? `<div style="font-size:11px;color:var(--gray);margin-bottom:4px">전분기 비교 불가 · 이번 분기 분포만 표시</div>` : '';
+    return note + `<div style="margin-top:2px">${rr.map(r=>fullRow(r,noCmp)).join('')}</div>`;
   }
 
-  // ── ① 점수선택이유 4구분 (한 화면) ──
+  // ── ① 점수선택이유 4구분 ──
   const segs=[['전체','전체'],['추천자','추천자'],['중립자','중립자'],['비추천자','비추천자']];
   const segColor={'전체':'#8F1D2C','추천자':'#0d9488','중립자':'#d97706','비추천자':'#e11d48'};
+  const reasonNoCmp = !prev;
   let rg='';
   segs.forEach(([key,label])=>{
-    const rows=distRows((reasonSrc[cur]||{})[key], (reasonSrc[prev]||{})[key], 'sum');
+    const rows=distRows((reasonSrc[cur]||{})[key], prev?(reasonSrc[prev]||{})[key]:{}, 'sum');
     rg+=`<div class="card" style="border-top:3px solid ${segColor[key]};margin-bottom:0">
       <div style="font-size:17px;font-weight:800;color:${segColor[key]};margin-bottom:10px">${label}</div>
-      ${changeBlock(rows,'해당 그룹 응답 없음')}
+      ${changeBlock(rows,'해당 그룹 응답 없음',false,reasonNoCmp)}
     </div>`;
   });
   const rgEl=document.getElementById('reason-change-grid'); if(rgEl) rgEl.innerHTML=rg;
 
-  // ── ② 강점 / ③ 변화필요 ──
-  const strEl=document.getElementById('strength-change');
-  if(strEl) strEl.innerHTML=changeBlock(distRows(strSrc[cur], strSrc[prev], 'sum'), `${cur}·${prev} 강점 데이터가 없습니다`, true);
-  const chgEl=document.getElementById('change-change');
-  if(chgEl) chgEl.innerHTML=changeBlock(distRows(chgSrc[cur], chgSrc[prev], 'sum'), `${cur}·${prev} 변화필요 데이터가 없습니다`, true);
-
-  // ── ④ 제안 (주제별, 응답자 수 기준) ──
-  const sugEl=document.getElementById('suggestion-change');
-  if(sugEl){
-    const rows=distRows(sugSrc[cur], sugSrc[prev], '_n');
-    const top=rows.slice().sort((a,b)=>b.cur-a.cur)[0];
-    let h=`<div style="font-size:12px;color:var(--gray);margin-bottom:8px">응답자 중 해당 주제를 언급한 비율 기준 · 가장 많은 제안: <strong style="color:#8F1D2C">${top?top.k:'-'} ${top?top.cur.toFixed(1):0}%</strong></div>`;
-    h+=changeBlock(rows, '제안 데이터가 없습니다', true);
-    sugEl.innerHTML=h;
+  // ── 강점/변화/제안 공통: 문항 도입(26년 2분기~) 안내 ──
+  const NOITEM = `<div style="color:var(--gray);font-size:12px;padding:8px">이 분기에는 해당 문항이 없습니다 (26년 2분기부터 도입)</div>`;
+  function cultureBlock(src, denom, hideZero){
+    if(!hasData(src[cur])) return NOITEM;
+    const cmp = prev && hasData(src[prev]);
+    return changeBlock(distRows(src[cur], cmp?src[prev]:{}, denom), '데이터 없음', hideZero, !cmp);
   }
 
-  // ── ⑤ 주요 의견 (유지, 구분별) ──
+  // ② 강점 / ③ 변화필요
+  const strEl=document.getElementById('strength-change');
+  if(strEl) strEl.innerHTML=cultureBlock(strSrc,'sum',true);
+  const chgEl=document.getElementById('change-change');
+  if(chgEl) chgEl.innerHTML=cultureBlock(chgSrc,'sum',true);
+
+  // ④ 제안
+  const sugEl=document.getElementById('suggestion-change');
+  if(sugEl){
+    if(!hasData(sugSrc[cur])){ sugEl.innerHTML=NOITEM; }
+    else {
+      const cmp = prev && hasData(sugSrc[prev]);
+      const rows=distRows(sugSrc[cur], cmp?sugSrc[prev]:{}, '_n');
+      const top=rows.slice().sort((a,b)=>b.cur-a.cur)[0];
+      let h=`<div style="font-size:12px;color:var(--gray);margin-bottom:8px">응답자 중 해당 주제를 언급한 비율 기준 · 가장 많은 제안: <strong style="color:#8F1D2C">${top?top.k:'-'} ${top?top.cur.toFixed(1):0}%</strong></div>`;
+      h+=changeBlock(rows, '제안 데이터가 없습니다', true, !cmp);
+      sugEl.innerHTML=h;
+    }
+  }
+
+  // ⑤ 주요 의견
   const cmtEl=document.getElementById('cmt-blocks');
   if(cmtEl){
     const cd=cmtSrc[cur]||{};
@@ -1246,6 +1268,7 @@ function renderVoice(){
     cmtEl.innerHTML = h || '<div style="color:var(--gray);font-size:12px">해당 그룹의 의견 데이터가 없습니다.</div>';
   }
 }
+
 function loadXLSX(cb){ if(window.XLSX){cb();return;} const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; s.onload=cb; document.head.appendChild(s); }
 const PM={'2024-03':'24년 1분기','2024-06':'24년 2분기','2024-08':'24년 3분기','2024-12':'24년 4분기','2025-06':'25년 2분기','2025-09':'25년 3분기','2025-12':'25년 4분기','2026-03':'26년 1분기','2026-06':'26년 2분기','2026-09':'26년 3분기','2026-12':'26년 4분기','2027-03':'27년 1분기'};
 function guessPeriod(rows){ if(!rows||!rows.length)return'알 수 없음'; const r=rows[0]; const tv=r['타임스탬프']||Object.values(r)[0]; if(!tv)return'알 수 없음'; let d; if(tv instanceof Date)d=tv; else if(typeof tv==='number')d=new Date(Math.round((tv-25569)*86400*1000)); else d=new Date(String(tv)); if(isNaN(d))return'알 수 없음'; const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return PM[k]||`${d.getFullYear()}년 ${d.getMonth()+1}월`; }
