@@ -1629,22 +1629,12 @@ function renderInsights() {
     insights.push(`목표(${ENPS_TARGET})까지 <strong style="color:#e11d48">${Math.abs(gap)}점</strong> 남았습니다.`);
   }
 
-  // ② 가장 낮은 직종 & 병원 (최신 분기)
-  let lowJob = null, lowJobV = 999;
-  RAW.jobs.forEach(j => {
-    const d = (RAW.job_data[j]||[]).find(x=>x['기간']===lastP);
-    if (d && d.total >= 30 && d.enps < lowJobV) { lowJobV = d.enps; lowJob = j; }
-  });
-  let lowHosp = null, lowHospV = 999;
-  Object.keys(RAW.hosp_data).forEach(h => {
-    const d = (RAW.hosp_data[h]||[]).find(x=>x['기간']===lastP);
-    if (d && d.enps < lowHospV) { lowHospV = d.enps; lowHosp = h; }
-  });
-  if (lowJob || lowHosp) {
-    const parts = [];
-    if (lowHosp) parts.push(`병원 중에는 <strong>${lowHosp}(${lowHospV})</strong>`);
-    if (lowJob) parts.push(`직종 중에는 <strong>${lowJob}(${lowJobV})</strong>`);
-    insights.push(`${parts.join(', ')}이 가장 낮아 관심이 필요합니다.`);
+  // ② 추천 이유 TOP3 (최신 분기)
+  const rdP = ((RAW.reason_data||{})[lastP]||{})['추천자']||{};
+  const sortedP = Object.entries(rdP).sort((a,b)=>b[1]-a[1]);
+  if (sortedP.length) {
+    const top3P = sortedP.slice(0,3).map(([k,v],i)=>`${i+1}위 ${k}(${v.toLocaleString()}건)`).join(' · ');
+    insights.push(`추천 이유는 <strong>${top3P}</strong> 순입니다.`);
   }
 
   // ③ 비추천 이유 1위 (최신 분기)
